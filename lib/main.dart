@@ -5,8 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/entries_provider.dart';
+import 'screens/auth_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/biometric_service.dart';
 import 'services/storage_service.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,15 +68,27 @@ class _SecureVaultAppState extends State<SecureVaultApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Critical Security: Auto-lock when app is minimized or backgrounded
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden) {
+    // Critical: Do NOT lock while the system biometric dialog is active!
+    if (BiometricService.isAuthenticating) {
+      return;
+    }
+
+    // Auto-lock when app is minimized or sent to background
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       final auth = context.read<AuthProvider>();
       final entries = context.read<EntriesProvider>();
       if (auth.isAuthenticated) {
         entries.clear();
         auth.lockVault();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // Re-prompt auth immediately upon resume if vault is locked
+      final auth = context.read<AuthProvider>();
+      if (auth.status == AuthStatus.locked && !auth.isAuthenticated) {
+        navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthScreen()),
+          (route) => false,
+        );
       }
     }
   }
@@ -80,6 +96,7 @@ class _SecureVaultAppState extends State<SecureVaultApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'SecureVault',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

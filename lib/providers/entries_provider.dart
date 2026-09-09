@@ -12,10 +12,6 @@ class EntriesProvider extends ChangeNotifier {
   EntryCategory? _selectedCategory;
   bool _isLoading = false;
 
-  // Track unmasked sensitive fields (key: "$entryId-$fieldKey")
-  final Set<String> _unmaskedFields = {};
-  final Map<String, Timer> _unmaskTimers = {};
-
   EntriesProvider(this._storageService);
 
   List<VaultEntry> get entries => List.unmodifiable(_entries);
@@ -127,34 +123,68 @@ class EntriesProvider extends ChangeNotifier {
 
   // --- Per-PIN / Sensitive Field Security Controls ---
 
+  // Track unmasked sensitive fields (key: "$entryId-$fieldKey")
+  final Set<String> _unmaskedFields = {};
+  final Map<String, Timer> _unmaskTimers = {};
+  final Map<String, int> _countdownSeconds = {};
+
   String _fieldKey(String entryId, String field) => '$entryId::$field';
 
   bool isFieldUnmasked(String entryId, String field) {
     return _unmaskedFields.contains(_fieldKey(entryId, field));
   }
 
-  /// Unmasks sensitive field for 30 seconds with auto-hide protection
+  int getRemainingSeconds(String entryId, String field) {
+    return _countdownSeconds[_fieldKey(entryId, field)] ?? 0;
+  }
+
+  /// Unmasks sensitive field for 30 seconds with dynamic live countdown ticker
   void unmaskField(String entryId, String field, {int durationSeconds = 30}) {
-    final key = _fieldKey(entryId, field);
-    _unmaskedFields.add(key);
+    unmaskFields(entryId, [field], durationSeconds: durationSeconds);
+  }
 
-    // Cancel existing timer if present
-    _unmaskTimers[key]?.cancel();
+  /// Unmasks multiple paired fields simultaneously (e.g. account number & IFSC)
+  void unmaskFields(String entryId, List<String> fields, {int durationSeconds = 30}) {
+    for (final field in fields) {
+      final key = _fieldKey(entryId, field);
+      _unmaskedFields.add(key);
+      _countdownSeconds[key] = durationSeconds;
 
-    // Set auto-hide timer
-    _unmaskTimers[key] = Timer(Duration(seconds: durationSeconds), () {
-      maskField(entryId, field);
-    });
+      _unmaskTimers[key]?.cancel();
+
+      // Dynamic 1-second ticker
+      _unmaskTimers[key] = Timer.periodic(const Duration(seconds: 1), (timer) {
+        final current = _countdownSeconds[key] ?? 0;
+        if (current <= 1) {
+          timer.cancel();
+          _unmaskTimers.remove(key);
+          _unmaskedFields.remove(key);
+          _countdownSeconds.remove(key);
+          notifyListeners();
+        } else {
+          _countdownSeconds[key] = current - 1;
+          notifyListeners();
+        }
+      });
+    }
 
     notifyListeners();
   }
 
   /// Re-masks sensitive field immediately
   void maskField(String entryId, String field) {
-    final key = _fieldKey(entryId, field);
-    _unmaskedFields.remove(key);
-    _unmaskTimers[key]?.cancel();
-    _unmaskTimers.remove(key);
+    maskFields(entryId, [field]);
+  }
+
+  /// Re-masks paired fields immediately
+  void maskFields(String entryId, List<String> fields) {
+    for (final field in fields) {
+      final key = _fieldKey(entryId, field);
+      _unmaskedFields.remove(key);
+      _unmaskTimers[key]?.cancel();
+      _unmaskTimers.remove(key);
+      _countdownSeconds.remove(key);
+    }
     notifyListeners();
   }
 
@@ -168,6 +198,7 @@ class EntriesProvider extends ChangeNotifier {
     }
     _unmaskTimers.clear();
     _unmaskedFields.clear();
+    _countdownSeconds.clear();
     notifyListeners();
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../config/app_colors.dart';
@@ -6,11 +7,17 @@ import '../models/user_profile.dart';
 import '../models/vault_entry.dart';
 import '../providers/auth_provider.dart';
 import '../providers/entries_provider.dart';
+import '../utils/formatters.dart';
 
 class AddEditEntryScreen extends StatefulWidget {
   final VaultEntry? existingEntry;
+  final EntryCategory? initialCategory;
 
-  const AddEditEntryScreen({super.key, this.existingEntry});
+  const AddEditEntryScreen({
+    super.key,
+    this.existingEntry,
+    this.initialCategory,
+  });
 
   @override
   State<AddEditEntryScreen> createState() => _AddEditEntryScreenState();
@@ -40,7 +47,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
         _fieldControllers[k] = TextEditingController(text: v);
       });
     } else {
-      _selectedCategory = EntryCategory.bankAccount;
+      _selectedCategory = widget.initialCategory ?? EntryCategory.bankAccount;
     }
   }
 
@@ -69,6 +76,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
     bool isSecret = false,
     bool isRequired = false,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? formatters,
   }) {
     final controller = _getController(fieldKey);
 
@@ -89,6 +97,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           TextFormField(
             controller: controller,
             keyboardType: keyboardType,
+            inputFormatters: formatters,
             textCapitalization: textCapitalization,
             validator: isRequired
                 ? (v) => (v == null || v.trim().isEmpty) ? 'Please enter $label' : null
@@ -112,7 +121,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           _buildField(
             label: 'Bank Name',
             fieldKey: 'institution',
-            hint: 'e.g. HDFC Bank, SBI, ICICI',
+            hint: 'e.g. HDFC Bank, SBI, ICICI, SIB',
             isRequired: true,
             textCapitalization: TextCapitalization.words,
           ),
@@ -142,11 +151,38 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
             hint: 'e.g. Indiranagar, Bengaluru',
             textCapitalization: TextCapitalization.words,
           ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildField(
+                  label: 'App Login MPIN (Secret)',
+                  fieldKey: 'mpin',
+                  hint: '4 or 6 digit MPIN',
+                  keyboardType: TextInputType.number,
+                  isSecret: true,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _buildField(
+                  label: 'ATM PIN (Secret)',
+                  fieldKey: 'pin',
+                  hint: '4-digit ATM PIN',
+                  keyboardType: TextInputType.number,
+                  isSecret: true,
+                ),
+              ),
+            ],
+          ),
           _buildField(
-            label: 'ATM / UPI PIN (Protected)',
-            fieldKey: 'pin',
-            hint: '4 or 6 digit PIN',
-            keyboardType: TextInputType.number,
+            label: 'NetBanking Customer ID / User ID',
+            fieldKey: 'user_id',
+            hint: 'e.g. 84920193',
+          ),
+          _buildField(
+            label: 'NetBanking Password (Secret)',
+            fieldKey: 'password',
+            hint: 'Login Password',
             isSecret: true,
           ),
         ];
@@ -171,6 +207,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
             fieldKey: 'card_number',
             hint: '16-digit card number',
             keyboardType: TextInputType.number,
+            formatters: [CardNumberFormatter()],
             isRequired: true,
           ),
           Row(
@@ -181,6 +218,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
                   fieldKey: 'expiry',
                   hint: 'MM/YY',
                   keyboardType: TextInputType.datetime,
+                  formatters: [ExpiryDateFormatter()],
                   isRequired: true,
                 ),
               ),
@@ -211,7 +249,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           _buildField(
             label: 'App / Bank Name',
             fieldKey: 'institution',
-            hint: 'e.g. Google Pay, PhonePe, Paytm, HDFC NetBanking',
+            hint: 'e.g. Google Pay, PhonePe, Paytm, BHIM, SIB Mirror+',
             isRequired: true,
           ),
           _buildField(
@@ -220,21 +258,37 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
             hint: 'e.g. mobile@upi or name@okaxis',
             keyboardType: TextInputType.emailAddress,
           ),
-          _buildField(
-            label: 'UPI PIN (Secret)',
-            fieldKey: 'pin',
-            hint: '4 or 6 digit UPI PIN',
-            keyboardType: TextInputType.number,
-            isSecret: true,
-            isRequired: true,
+          Row(
+            children: [
+              Expanded(
+                child: _buildField(
+                  label: 'UPI PIN (Secret)',
+                  fieldKey: 'pin',
+                  hint: '4 or 6 digit PIN',
+                  keyboardType: TextInputType.number,
+                  isSecret: true,
+                  isRequired: true,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _buildField(
+                  label: 'App Login MPIN (Secret)',
+                  fieldKey: 'mpin',
+                  hint: 'Login MPIN',
+                  keyboardType: TextInputType.number,
+                  isSecret: true,
+                ),
+              ),
+            ],
           ),
           _buildField(
-            label: 'NetBanking Customer ID / User ID',
+            label: 'User ID / Login ID',
             fieldKey: 'user_id',
-            hint: 'Customer ID',
+            hint: 'App Username or Customer ID',
           ),
           _buildField(
-            label: 'NetBanking Password (Secret)',
+            label: 'App Password (Secret)',
             fieldKey: 'password',
             hint: 'Login Password',
             isSecret: true,
@@ -255,6 +309,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
             fieldKey: 'aadhaar_number',
             hint: '12-digit number (e.g. 1234 5678 9012)',
             keyboardType: TextInputType.number,
+            formatters: [AadhaarNumberFormatter()],
             isRequired: true,
           ),
           _buildField(
@@ -268,6 +323,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
             fieldKey: 'dob',
             hint: 'DD/MM/YYYY',
             keyboardType: TextInputType.datetime,
+            formatters: [DateOfBirthFormatter()],
           ),
         ];
 

@@ -336,7 +336,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             onPressed: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => const AddEditEntryScreen(),
+                                  builder: (_) => AddEditEntryScreen(
+                                    initialCategory: entriesProvider.selectedCategory,
+                                  ),
                                 ),
                               );
                             },
@@ -389,7 +391,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const AddEditEntryScreen(),
+              builder: (_) => AddEditEntryScreen(
+                initialCategory: entriesProvider.selectedCategory,
+              ),
             ),
           );
         },

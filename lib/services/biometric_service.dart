@@ -4,6 +4,9 @@ import 'package:local_auth/local_auth.dart';
 class BiometricService {
   static final LocalAuthentication _auth = LocalAuthentication();
 
+  /// Flag indicating if system biometric prompt is currently active on screen
+  static bool isAuthenticating = false;
+
   /// Checks if device has biometric hardware and capability
   static Future<bool> isBiometricAvailable() async {
     try {
@@ -31,6 +34,8 @@ class BiometricService {
   static Future<bool> authenticateForUnlock({
     required String userName,
   }) async {
+    if (isAuthenticating) return false;
+    isAuthenticating = true;
     try {
       return await _auth.authenticate(
         localizedReason: 'Scan fingerprint to unlock $userName\'s SecureVault',
@@ -39,6 +44,10 @@ class BiometricService {
       );
     } on PlatformException catch (_) {
       return false;
+    } finally {
+      // Small buffer before resetting so lifecycle observer doesn't trigger immediately
+      await Future.delayed(const Duration(milliseconds: 300));
+      isAuthenticating = false;
     }
   }
 
@@ -46,6 +55,8 @@ class BiometricService {
   static Future<bool> authenticateToRevealSecret({
     required String fieldName,
   }) async {
+    if (isAuthenticating) return false;
+    isAuthenticating = true;
     try {
       return await _auth.authenticate(
         localizedReason: 'Scan fingerprint to view secret $fieldName',
@@ -54,6 +65,9 @@ class BiometricService {
       );
     } on PlatformException catch (_) {
       return false;
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 300));
+      isAuthenticating = false;
     }
   }
 }

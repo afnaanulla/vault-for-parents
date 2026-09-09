@@ -8,6 +8,7 @@ class MaskedFieldTile extends StatelessWidget {
   final String value;
   final bool isSensitive;
   final bool isUnmasked;
+  final int remainingSeconds;
   final VoidCallback onToggleReveal;
   final Color? accentColor;
 
@@ -17,6 +18,7 @@ class MaskedFieldTile extends StatelessWidget {
     required this.value,
     required this.isSensitive,
     required this.isUnmasked,
+    this.remainingSeconds = 30,
     required this.onToggleReveal,
     this.accentColor,
   });
@@ -67,14 +69,14 @@ class MaskedFieldTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.timer_outlined, size: 12, color: AppColors.warning),
-                      SizedBox(width: 4),
+                      const Icon(Icons.timer_outlined, size: 12, color: AppColors.warning),
+                      const SizedBox(width: 4),
                       Text(
-                        'Auto-hides in 30s',
-                        style: TextStyle(
+                        'Auto-hides in ${remainingSeconds > 0 ? remainingSeconds : 1}s',
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppColors.warning,

@@ -32,9 +32,19 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
   bool _isSecretField(String key) {
     final lower = key.toLowerCase();
     return lower.contains('pin') ||
+        lower.contains('mpin') ||
         lower.contains('cvv') ||
         lower.contains('password') ||
+        lower.contains('account_number') ||
+        lower.contains('ifsc_code') ||
         lower == 'note';
+  }
+
+  List<String> _getPairedFields(String key) {
+    if (key == 'account_number' || key == 'ifsc_code') {
+      return ['account_number', 'ifsc_code'];
+    }
+    return [key];
   }
 
   String _formatFieldLabel(String key) {
@@ -57,6 +67,8 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
         return 'CVV Security Code';
       case 'pin':
         return 'Secret PIN';
+      case 'mpin':
+        return 'App Login MPIN';
       case 'upi_id':
         return 'UPI ID / VPA';
       case 'user_id':
@@ -81,23 +93,28 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
   Future<void> _handleToggleSecret(String fieldKey, String label) async {
     final entriesProvider = context.read<EntriesProvider>();
     final entryId = _currentEntry.id;
+    final pairedFields = _getPairedFields(fieldKey);
 
-    // If already unmasked, mask it immediately
+    // If already unmasked, mask paired fields immediately
     if (entriesProvider.isFieldUnmasked(entryId, fieldKey)) {
-      entriesProvider.maskField(entryId, fieldKey);
+      entriesProvider.maskFields(entryId, pairedFields);
       return;
     }
 
-    // User requirement: Must give biometrics to see this particular PIN!
+    final authReason = pairedFields.length > 1
+        ? 'Account Number & IFSC Code'
+        : label;
+
+    // User requirement: Must give biometrics to see this particular PIN/secret!
     final authenticated = await BiometricService.authenticateToRevealSecret(
-      fieldName: label,
+      fieldName: authReason,
     );
 
     if (authenticated && mounted) {
-      entriesProvider.unmaskField(entryId, fieldKey, durationSeconds: 30);
+      entriesProvider.unmaskFields(entryId, pairedFields, durationSeconds: 30);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$label revealed for 30 seconds'),
+          content: Text('$authReason revealed for 30 seconds'),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
           backgroundColor: AppColors.textDark,
@@ -105,11 +122,11 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
       );
     } else if (mounted) {
       // Biometrics failed or cancelled: offer PIN confirmation fallback
-      _showPinFallbackModal(fieldKey, label);
+      _showPinFallbackModal(pairedFields, authReason);
     }
   }
 
-  void _showPinFallbackModal(String fieldKey, String label) {
+  void _showPinFallbackModal(List<String> pairedFields, String label) {
     String enteredPin = '';
     bool hasError = false;
 
@@ -133,9 +150,9 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               if (enteredPin.length == 4) {
                 if (enteredPin == auth.activeSessionPin) {
                   Navigator.of(ctx).pop();
-                  context.read<EntriesProvider>().unmaskField(
+                  context.read<EntriesProvider>().unmaskFields(
                         _currentEntry.id,
-                        fieldKey,
+                        pairedFields,
                         durationSeconds: 30,
                       );
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -423,6 +440,7 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
                     value: f.value,
                     isSensitive: isSecret,
                     isUnmasked: isUnmasked,
+                    remainingSeconds: entriesProvider.getRemainingSeconds(_currentEntry.id, f.key),
                     accentColor: accent,
                     onToggleReveal: () => _handleToggleSecret(f.key, label),
                   ),

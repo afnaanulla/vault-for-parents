@@ -38,10 +38,6 @@ class _SplashScreenState extends State<SplashScreen> {
         _navigate(const PinSetupScreen());
       } else {
         _navigate(const AuthScreen());
-        // User requested: prompt biometric on splash screen!
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          auth.attemptBiometricUnlock();
-        });
       }
     } else {
       _navigate(const UserSelectionScreen());
