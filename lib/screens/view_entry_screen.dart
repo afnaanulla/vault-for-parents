@@ -398,32 +398,6 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Security notice
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.2)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.fingerprint_rounded, size: 20, color: AppColors.primary),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Tap the 👁️ icon on any secret PIN/password to scan your fingerprint and view it.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textBody,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
 
               // Attached Document Photo
               if (_currentEntry.fields.containsKey('image_path') &&
