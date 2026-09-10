@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_colors.dart';
@@ -10,6 +11,7 @@ import '../widgets/masked_field_tile.dart';
 import '../widgets/numeric_keypad.dart';
 import '../widgets/pin_dots_indicator.dart';
 import 'add_edit_entry_screen.dart';
+import 'photo_view_screen.dart';
 
 class ViewEntryScreen extends StatefulWidget {
   final VaultEntry entry;
@@ -69,6 +71,8 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
         return 'Secret PIN';
       case 'mpin':
         return 'App Login MPIN';
+      case 'document_name':
+        return 'Document Name';
       case 'upi_id':
         return 'UPI ID / VPA';
       case 'user_id':
@@ -263,6 +267,10 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               Navigator.of(ctx).pop();
               final auth = context.read<AuthProvider>();
               final entries = context.read<EntriesProvider>();
+              final photoPath = _currentEntry.fields['image_path'];
+              if (photoPath != null && photoPath.isNotEmpty) {
+                await auth.storageService.deleteDocumentPhoto(photoPath);
+              }
               await entries.deleteEntry(
                 profile: auth.currentUser ?? UserProfile.father,
                 sessionPin: auth.activeSessionPin,
@@ -417,6 +425,99 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Attached Document Photo
+              if (_currentEntry.fields.containsKey('image_path') &&
+                  _currentEntry.fields['image_path']!.isNotEmpty) ...[
+                const Text(
+                  'Attached Document Photo',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PhotoViewScreen(
+                          imagePath: _currentEntry.fields['image_path']!,
+                          title: _currentEntry.title,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.file(
+                            File(_currentEntry.fields['image_path']!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Center(
+                              child: Icon(Icons.broken_image_rounded, size: 48, color: AppColors.textMuted),
+                            ),
+                          ),
+                          // Tap to view full screen banner at bottom
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.8),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.zoom_in_rounded, size: 20, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Tap to view full screen & zoom',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Spacer(),
+                                  Icon(Icons.fullscreen_rounded, size: 20, color: Colors.white),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               const Text(
                 'Confidential Details',
                 style: TextStyle(
@@ -427,8 +528,10 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Fields List
-              ..._currentEntry.fields.entries.map((f) {
+              // Fields List (excluding internal image_path)
+              ..._currentEntry.fields.entries
+                  .where((f) => f.key != 'image_path')
+                  .map((f) {
                 final isSecret = _isSecretField(f.key);
                 final label = _formatFieldLabel(f.key);
                 final isUnmasked = entriesProvider.isFieldUnmasked(_currentEntry.id, f.key);

@@ -30,6 +30,7 @@ class AuthProvider extends ChangeNotifier {
   String get activeSessionPin => _activeSessionPin;
   bool get isBiometricSupported => _isBiometricSupported;
   String? get authError => _authError;
+  StorageService get storageService => _storageService;
 
   Future<void> _initBiometrics() async {
     _isBiometricSupported = await BiometricService.isBiometricAvailable();

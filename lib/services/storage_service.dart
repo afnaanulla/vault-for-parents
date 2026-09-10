@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import '../models/user_profile.dart';
 import '../models/vault_entry.dart';
 import 'encryption_service.dart';
@@ -113,5 +116,35 @@ class StorageService {
 
   Future<void> updateEntryCount(UserProfile profile, int count) async {
     await _prefs.setInt('${profile.storagePrefix}entry_count', count);
+  }
+
+  /// Copies a captured or chosen photo into app's private sandbox (not in public gallery)
+  Future<String> saveDocumentPhoto(UserProfile profile, String tempFilePath) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final docsDir = Directory('${appDir.path}/${profile.storagePrefix}documents');
+    if (!await docsDir.exists()) {
+      await docsDir.create(recursive: true);
+    }
+
+    final ext = tempFilePath.contains('.')
+        ? tempFilePath.substring(tempFilePath.lastIndexOf('.'))
+        : '.jpg';
+    final newFileName = 'doc_${const Uuid().v4()}$ext';
+    final targetPath = '${docsDir.path}/$newFileName';
+
+    final tempFile = File(tempFilePath);
+    await tempFile.copy(targetPath);
+    return targetPath;
+  }
+
+  /// Removes the private photo file when an entry is deleted
+  Future<void> deleteDocumentPhoto(String? filePath) async {
+    if (filePath == null || filePath.isEmpty) return;
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
   }
 }

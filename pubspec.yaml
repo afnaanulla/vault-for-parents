@@ -43,6 +43,8 @@ dependencies:
   uuid: ^4.6.0
   intl: ^0.20.3
   provider: ^6.1.5+1
+  image_picker: ^1.2.3
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

@@ -7,6 +7,7 @@ enum EntryCategory {
   upiPin,
   aadhaar,
   pan,
+  document,
   secureNote,
 }
 
@@ -23,6 +24,8 @@ extension EntryCategoryExt on EntryCategory {
         return 'Aadhaar Card';
       case EntryCategory.pan:
         return 'PAN Card';
+      case EntryCategory.document:
+        return 'Documents & Photos';
       case EntryCategory.secureNote:
         return 'Secure Note';
     }
@@ -40,6 +43,8 @@ extension EntryCategoryExt on EntryCategory {
         return Icons.badge_rounded;
       case EntryCategory.pan:
         return Icons.featured_play_list_rounded;
+      case EntryCategory.document:
+        return Icons.photo_library_rounded;
       case EntryCategory.secureNote:
         return Icons.lock_outline_rounded;
     }
@@ -57,6 +62,8 @@ extension EntryCategoryExt on EntryCategory {
         return const Color(0xFFEA580C); // Orange
       case EntryCategory.pan:
         return const Color(0xFF0284C7); // Sky Blue
+      case EntryCategory.document:
+        return const Color(0xFF4F46E5); // Indigo
       case EntryCategory.secureNote:
         return const Color(0xFF475569); // Slate
     }

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 import '../models/vault_entry.dart';
@@ -16,6 +17,10 @@ class VaultEntryCard extends StatelessWidget {
   });
 
   String _getSummaryText() {
+    if (entry.category == EntryCategory.document) {
+      if (entry.institution.isNotEmpty) return 'Document • ${entry.institution}';
+      return 'Photo Document • Tap to view & zoom';
+    }
     if (entry.fields.containsKey('account_number')) {
       final acc = entry.fields['account_number']!;
       final last4 = acc.length > 4 ? acc.substring(acc.length - 4) : acc;
@@ -43,13 +48,15 @@ class VaultEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catColor = entry.category.color;
+    final photoPath = entry.fields['image_path'];
+    final hasPhoto = photoPath != null && photoPath.isNotEmpty && File(photoPath).existsSync();
 
     return JupiterCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
-          // Category Icon Badge
+          // Category Icon or Photo Thumbnail Badge
           Container(
             width: 48,
             height: 48,
@@ -57,10 +64,23 @@ class VaultEntryCard extends StatelessWidget {
               color: catColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              entry.category.icon,
-              color: catColor,
-              size: 24,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: hasPhoto
+                  ? Image.file(
+                      File(photoPath),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        entry.category.icon,
+                        color: catColor,
+                        size: 24,
+                      ),
+                    )
+                  : Icon(
+                      entry.category.icon,
+                      color: catColor,
+                      size: 24,
+                    ),
             ),
           ),
           const SizedBox(width: 14),

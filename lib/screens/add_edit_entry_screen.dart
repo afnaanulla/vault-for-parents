@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../config/app_colors.dart';
@@ -33,6 +35,8 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
   // Dynamic field controllers
   final Map<String, TextEditingController> _fieldControllers = {};
 
+  // Photo document path
+  String? _selectedImagePath;
   bool _isSaving = false;
 
   @override
@@ -43,6 +47,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
       _selectedCategory = entry.category;
       _titleController.text = entry.title;
       _institutionController.text = entry.institution;
+      _selectedImagePath = entry.fields['image_path'];
       entry.fields.forEach((k, v) {
         _fieldControllers[k] = TextEditingController(text: v);
       });
@@ -61,10 +66,196 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
     super.dispose();
   }
 
-  TextEditingController _getController(String fieldKey, [String initial = '']) {
-    return _fieldControllers.putIfAbsent(
-      fieldKey,
-      () => TextEditingController(text: initial),
+  TextEditingController _getController(String key) {
+    return _fieldControllers.putIfAbsent(key, () => TextEditingController());
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+      if (picked != null) {
+        setState(() {
+          _selectedImagePath = picked.path;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open camera or photos: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildPhotoPickerSection({required bool isRequired}) {
+    final hasImage = _selectedImagePath != null && _selectedImagePath!.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                isRequired ? 'Document Photo *' : 'Attach Document / Passbook Photo (Optional)',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const Spacer(),
+              if (hasImage)
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                  label: const Text('Remove Photo', style: TextStyle(fontSize: 12)),
+                  onPressed: () {
+                    setState(() {
+                      _selectedImagePath = null;
+                    });
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          if (hasImage) ...[
+            // Photo Preview Container
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primaryLight, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(
+                      File(_selectedImagePath!),
+                      fit: BoxFit.cover,
+                    ),
+                    // Retake Overlay Button
+                    Positioned(
+                      bottom: 12,
+                      right: 12,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black.withValues(alpha: 0.75),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        onPressed: () => _pickImage(ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt_rounded, size: 16),
+                        label: const Text('Retake Photo', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            // Big Elderly-Friendly Capture Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _pickImage(ImageSource.camera),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.4), width: 1.5),
+                      ),
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.photo_camera_rounded, size: 36, color: AppColors.primary),
+                          SizedBox(height: 8),
+                          Text(
+                            'Take Photo',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Use Camera',
+                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _pickImage(ImageSource.gallery),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border, width: 1.5),
+                      ),
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.photo_library_rounded, size: 36, color: AppColors.textBody),
+                          SizedBox(height: 8),
+                          Text(
+                            'Upload Photo',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'From Gallery',
+                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -345,8 +536,51 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           ),
         ];
 
+      case EntryCategory.document:
+        return [
+          _buildPhotoPickerSection(isRequired: true),
+          _buildField(
+            label: 'Document Name (Searchable)',
+            fieldKey: 'document_name',
+            hint: 'e.g. SBI Passbook, Aadhaar Front, Electricity Bill',
+            isRequired: true,
+            textCapitalization: TextCapitalization.words,
+          ),
+          _buildField(
+            label: 'Organization / Bank / Issuer',
+            fieldKey: 'institution',
+            hint: 'e.g. State Bank of India, UIDAI, Income Tax',
+            textCapitalization: TextCapitalization.words,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Document Notes / Account No (Optional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _getController('note'),
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Add any reference numbers or helpful notes...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ];
+
       case EntryCategory.secureNote:
         return [
+          _buildPhotoPickerSection(isRequired: false),
           _buildField(
             label: 'Locker / Account / Reference',
             fieldKey: 'institution',
@@ -384,6 +618,18 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedCategory == EntryCategory.document &&
+        (_selectedImagePath == null || _selectedImagePath!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please take or upload a photo of the document first.'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final auth = context.read<AuthProvider>();
@@ -398,12 +644,34 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
       }
     }
 
+    // Save sandboxed photo if present
+    if (_selectedImagePath != null && _selectedImagePath!.isNotEmpty) {
+      final existingPath = widget.existingEntry?.fields['image_path'];
+      if (_selectedImagePath != existingPath) {
+        final savedPath = await auth.storageService.saveDocumentPhoto(user, _selectedImagePath!);
+        fields['image_path'] = savedPath;
+        if (existingPath != null) {
+          await auth.storageService.deleteDocumentPhoto(existingPath);
+        }
+      } else {
+        fields['image_path'] = existingPath!;
+      }
+    } else {
+      final existingPath = widget.existingEntry?.fields['image_path'];
+      if (existingPath != null) {
+        await auth.storageService.deleteDocumentPhoto(existingPath);
+      }
+    }
+
     final institution = fields['institution'] ?? _institutionController.text.trim();
+    final docName = fields['document_name'];
     final title = _titleController.text.trim().isNotEmpty
         ? _titleController.text.trim()
-        : institution.isNotEmpty
-            ? institution
-            : _selectedCategory.displayName;
+        : (docName != null && docName.isNotEmpty)
+            ? docName
+            : institution.isNotEmpty
+                ? institution
+                : _selectedCategory.displayName;
 
     final isNew = widget.existingEntry == null;
     final entry = VaultEntry(

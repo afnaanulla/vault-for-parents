@@ -36,10 +36,12 @@ All your accounts are neatly arranged into clean categories:
 * 💳 **Debit & Credit Cards:** Card Number, Expiry Date, CVV, and ATM PIN.
 * 📱 **UPI & NetBanking:** Google Pay / PhonePe UPI IDs, UPI PIN, and Login User IDs.
 * 🪪 **Government IDs:** Aadhaar Numbers and PAN Cards.
+* 📸 **Documents & Photos:** Bank passbooks, cancelled cheques, electricity bills, tax receipts, or ID cards. Parents can take a quick photo or upload from gallery, give it a simple name (e.g. *"SBI Passbook Front Page"*), and search or zoom in anytime!
 * 📝 **Safe Notes:** Locker combinations, secret codes, and important reminders.
 
-### 4. Fast Single-Tap Copy
-Need to share your IFSC code or Account Number with someone for a bank transfer? Just tap the **Copy icon 📋** next to the number, and it's copied to your clipboard instantly!
+### 4. Fast Single-Tap Copy & Full-Screen Photo Zoom
+* Need to share your IFSC code or Account Number? Just tap the **Copy icon 📋** next to the number!
+* Need to see tiny print on a cheque or passbook photo? Just tap the photo to open the **Full-Screen Zoom Viewer** with large **[ + ]** and **[ − ]** buttons and 90° rotation!
 
 ---
 
@@ -51,8 +53,9 @@ Need to share your IFSC code or Account Number with someone for a bank transfer?
 | **Elderly-Friendly Keypad** | Big, tactile buttons that are easy to press without accidental typos. |
 | **Dedicated MPIN Fields** | Never get locked out of SIB Mirror+, ICICI iMobile, HDFC, or SBI YONO again. |
 | **Paired Bank Reveal** | Tapping to view your Account Number also unmasks the IFSC code with one single fingerprint scan — no double tapping. |
+| **Private Document Photos** | Photos stay strictly sandboxed inside the app — they never show up in the phone's public gallery or Google Photos. |
 | **Recent Apps Protection** | When the app is minimized, the screen automatically goes blank so nobody nearby can peek at private details. |
-| **Instant Search** | Just type the first two letters of any bank (e.g. *"HD"* or *"SB"*) to find the exact account in a flash. |
+| **Instant Search** | Just type the first two letters of any bank or document (e.g. *"HD"*, *"SB"*, or *"Pass"*) to find the exact account or photo in a flash. |
 
 ---
 
