@@ -10,6 +10,10 @@ import 'encryption_service.dart';
 class StorageService {
   final SharedPreferences _prefs;
 
+  /// True when the user is actively using the system camera or photo gallery picker.
+  /// Used by app lifecycle observers to prevent auto-locking the vault mid-capture.
+  static bool isPickingMedia = false;
+
   StorageService(this._prefs);
 
   static const String _keyLastUserId = 'secure_vault_last_user_id';

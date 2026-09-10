@@ -68,8 +68,8 @@ class _SecureVaultAppState extends State<SecureVaultApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Critical: Do NOT lock while the system biometric dialog is active!
-    if (BiometricService.isAuthenticating) {
+    // Critical: Do NOT lock while the system biometric dialog or camera/gallery picker is active!
+    if (BiometricService.isAuthenticating || StorageService.isPickingMedia) {
       return;
     }
 

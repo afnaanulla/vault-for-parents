@@ -9,6 +9,7 @@ import '../models/user_profile.dart';
 import '../models/vault_entry.dart';
 import '../providers/auth_provider.dart';
 import '../providers/entries_provider.dart';
+import '../services/storage_service.dart';
 import '../utils/formatters.dart';
 
 class AddEditEntryScreen extends StatefulWidget {
@@ -54,6 +55,20 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
     } else {
       _selectedCategory = widget.initialCategory ?? EntryCategory.bankAccount;
     }
+    _checkLostData();
+  }
+
+  Future<void> _checkLostData() async {
+    try {
+      final picker = ImagePicker();
+      final response = await picker.retrieveLostData();
+      if (response.isEmpty) return;
+      if (response.file != null && mounted) {
+        setState(() {
+          _selectedImagePath = response.file!.path;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -71,6 +86,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    StorageService.isPickingMedia = true;
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
@@ -93,6 +109,11 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           ),
         );
       }
+    } finally {
+      // 800ms buffer ensures Android activity resume transitions complete
+      // before re-enabling auto-lock on app backgrounding
+      await Future.delayed(const Duration(milliseconds: 800));
+      StorageService.isPickingMedia = false;
     }
   }
 
