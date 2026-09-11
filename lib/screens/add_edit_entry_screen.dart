@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'photo_view_screen.dart';
 import '../config/app_colors.dart';
 import '../models/user_profile.dart';
 import '../models/vault_entry.dart';
@@ -36,8 +38,8 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
   // Dynamic field controllers
   final Map<String, TextEditingController> _fieldControllers = {};
 
-  // Photo document path
-  String? _selectedImagePath;
+  // Photo document paths (multi-page support)
+  List<String> _selectedImagePaths = [];
   bool _isSaving = false;
 
   @override
@@ -48,7 +50,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
       _selectedCategory = entry.category;
       _titleController.text = entry.title;
       _institutionController.text = entry.institution;
-      _selectedImagePath = entry.fields['image_path'];
+      _selectedImagePaths = List<String>.from(entry.imagePaths);
       entry.fields.forEach((k, v) {
         _fieldControllers[k] = TextEditingController(text: v);
       });
@@ -65,7 +67,18 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
       if (response.isEmpty) return;
       if (response.file != null && mounted) {
         setState(() {
-          _selectedImagePath = response.file!.path;
+          if (!_selectedImagePaths.contains(response.file!.path)) {
+            _selectedImagePaths.add(response.file!.path);
+          }
+        });
+      }
+      if (response.files != null && mounted) {
+        setState(() {
+          for (final f in response.files!) {
+            if (!_selectedImagePaths.contains(f.path)) {
+              _selectedImagePaths.add(f.path);
+            }
+          }
         });
       }
     } catch (_) {}
@@ -85,40 +98,71 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
     return _fieldControllers.putIfAbsent(key, () => TextEditingController());
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickCameraImage() async {
     StorageService.isPickingMedia = true;
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
-        source: source,
+        source: ImageSource.camera,
         imageQuality: 85,
         maxWidth: 2048,
         maxHeight: 2048,
       );
       if (picked != null) {
         setState(() {
-          _selectedImagePath = picked.path;
+          _selectedImagePaths.add(picked.path);
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open camera or photos: $e'),
+            content: Text('Could not open camera: $e'),
             backgroundColor: AppColors.danger,
           ),
         );
       }
     } finally {
-      // 800ms buffer ensures Android activity resume transitions complete
-      // before re-enabling auto-lock on app backgrounding
+      await Future.delayed(const Duration(milliseconds: 800));
+      StorageService.isPickingMedia = false;
+    }
+  }
+
+  Future<void> _pickGalleryImages() async {
+    StorageService.isPickingMedia = true;
+    try {
+      final picker = ImagePicker();
+      final pickedList = await picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+      if (pickedList.isNotEmpty) {
+        setState(() {
+          for (final picked in pickedList) {
+            if (!_selectedImagePaths.contains(picked.path)) {
+              _selectedImagePaths.add(picked.path);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open photos gallery: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
       await Future.delayed(const Duration(milliseconds: 800));
       StorageService.isPickingMedia = false;
     }
   }
 
   Widget _buildPhotoPickerSection({required bool isRequired}) {
-    final hasImage = _selectedImagePath != null && _selectedImagePath!.isNotEmpty;
+    final hasImages = _selectedImagePaths.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
@@ -128,25 +172,43 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           Row(
             children: [
               Text(
-                isRequired ? 'Document Photo *' : 'Attach Document / Passbook Photo (Optional)',
+                isRequired ? 'Document Photos *' : 'Attach Document Photos (Optional)',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textDark,
                 ),
               ),
+              if (hasImages) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_selectedImagePaths.length} ${_selectedImagePaths.length == 1 ? 'page' : 'pages'}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
-              if (hasImage)
+              if (hasImages)
                 TextButton.icon(
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.danger,
                     visualDensity: VisualDensity.compact,
                   ),
                   icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                  label: const Text('Remove Photo', style: TextStyle(fontSize: 12)),
+                  label: const Text('Clear All', style: TextStyle(fontSize: 12)),
                   onPressed: () {
                     setState(() {
-                      _selectedImagePath = null;
+                      _selectedImagePaths.clear();
                     });
                   },
                 ),
@@ -154,59 +216,175 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
           ),
           const SizedBox(height: 8),
 
-          if (hasImage) ...[
-            // Photo Preview Container
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primaryLight, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(
-                      File(_selectedImagePath!),
-                      fit: BoxFit.cover,
-                    ),
-                    // Retake Overlay Button
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black.withValues(alpha: 0.75),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          if (hasImages) ...[
+            // Horizontal Photo Strip
+            SizedBox(
+              height: 180,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedImagePaths.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final path = _selectedImagePaths[index];
+                  final file = File(path);
+
+                  return Container(
+                    width: 135,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.primaryLight, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
-                        onPressed: () => _pickImage(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt_rounded, size: 16),
-                        label: const Text('Retake Photo', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(13),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Tap to preview
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PhotoViewScreen(
+                                    imagePaths: _selectedImagePaths,
+                                    initialIndex: index,
+                                    title: 'Document Preview',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Image.file(
+                              file,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image_rounded, color: AppColors.textMuted),
+                              ),
+                            ),
+                          ),
+
+                          // Page Badge (Top-Left)
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.75),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'Page ${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Remove single page button (Top-Right)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedImagePaths.removeAt(index);
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.danger.withValues(alpha: 0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Tap to view hint at bottom
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              color: Colors.black.withValues(alpha: 0.55),
+                              child: const Center(
+                                child: Text(
+                                  'Tap to Zoom',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
+
+            const SizedBox(height: 12),
+
+            // Secondary Buttons to Add More Pages
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primaryLight, width: 1.2),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _pickCameraImage,
+                    icon: const Icon(Icons.add_a_photo_rounded, size: 18),
+                    label: const Text('Add via Camera', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textDark,
+                      side: const BorderSide(color: AppColors.border, width: 1.2),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _pickGalleryImages,
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Add from Gallery', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
           ] else ...[
-            // Big Elderly-Friendly Capture Buttons
+            // Big Elderly-Friendly Capture Buttons (Initial State)
             Row(
               children: [
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () => _pickImage(ImageSource.camera),
+                    onTap: _pickCameraImage,
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
                       decoration: BoxDecoration(
@@ -241,7 +419,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () => _pickImage(ImageSource.gallery),
+                    onTap: _pickGalleryImages,
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
                       decoration: BoxDecoration(
@@ -255,7 +433,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
                           Icon(Icons.photo_library_rounded, size: 36, color: AppColors.textBody),
                           SizedBox(height: 8),
                           Text(
-                            'Upload Photo',
+                            'Upload Photos',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -264,7 +442,7 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'From Gallery',
+                            'Select Multiple',
                             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                         ],
@@ -639,11 +817,10 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedCategory == EntryCategory.document &&
-        (_selectedImagePath == null || _selectedImagePath!.isEmpty)) {
+    if (_selectedCategory == EntryCategory.document && _selectedImagePaths.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please take or upload a photo of the document first.'),
+          content: Text('Please take or upload at least one photo of the document first.'),
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
         ),
@@ -665,23 +842,34 @@ class _AddEditEntryScreenState extends State<AddEditEntryScreen> {
       }
     }
 
-    // Save sandboxed photo if present
-    if (_selectedImagePath != null && _selectedImagePath!.isNotEmpty) {
-      final existingPath = widget.existingEntry?.fields['image_path'];
-      if (_selectedImagePath != existingPath) {
-        final savedPath = await auth.storageService.saveDocumentPhoto(user, _selectedImagePath!);
-        fields['image_path'] = savedPath;
-        if (existingPath != null) {
-          await auth.storageService.deleteDocumentPhoto(existingPath);
-        }
+    // Save sandboxed photos if present (multi-page support)
+    final oldPaths = widget.existingEntry?.imagePaths ?? [];
+    final finalSandboxedPaths = <String>[];
+
+    for (final path in _selectedImagePaths) {
+      if (oldPaths.contains(path) && File(path).existsSync()) {
+        // Already sandboxed in persistent storage
+        finalSandboxedPaths.add(path);
       } else {
-        fields['image_path'] = existingPath!;
+        // Newly added temporary image: copy into private sandboxed storage
+        final savedPath = await auth.storageService.saveDocumentPhoto(user, path);
+        finalSandboxedPaths.add(savedPath);
       }
+    }
+
+    // Clean up any removed photos from disk to prevent dangling storage
+    for (final oldPath in oldPaths) {
+      if (!finalSandboxedPaths.contains(oldPath)) {
+        await auth.storageService.deleteDocumentPhoto(oldPath);
+      }
+    }
+
+    if (finalSandboxedPaths.isNotEmpty) {
+      fields['image_paths'] = json.encode(finalSandboxedPaths);
+      fields['image_path'] = finalSandboxedPaths.first;
     } else {
-      final existingPath = widget.existingEntry?.fields['image_path'];
-      if (existingPath != null) {
-        await auth.storageService.deleteDocumentPhoto(existingPath);
-      }
+      fields.remove('image_paths');
+      fields.remove('image_path');
     }
 
     final institution = fields['institution'] ?? _institutionController.text.trim();

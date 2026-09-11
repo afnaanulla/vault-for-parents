@@ -267,8 +267,7 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               Navigator.of(ctx).pop();
               final auth = context.read<AuthProvider>();
               final entries = context.read<EntriesProvider>();
-              final photoPath = _currentEntry.fields['image_path'];
-              if (photoPath != null && photoPath.isNotEmpty) {
+              for (final photoPath in _currentEntry.imagePaths) {
                 await auth.storageService.deleteDocumentPhoto(photoPath);
               }
               await entries.deleteEntry(
@@ -399,96 +398,219 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               const SizedBox(height: 20),
 
 
-              // Attached Document Photo
-              if (_currentEntry.fields.containsKey('image_path') &&
-                  _currentEntry.fields['image_path']!.isNotEmpty) ...[
-                const Text(
-                  'Attached Document Photo',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PhotoViewScreen(
-                          imagePath: _currentEntry.fields['image_path']!,
-                          title: _currentEntry.title,
+              // Attached Document Photos
+              if (_currentEntry.imagePaths.isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Text(
+                      'Attached Document Photos',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_currentEntry.imagePaths.length} ${_currentEntry.imagePaths.length == 1 ? 'page' : 'pages'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
                         ),
                       ),
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border, width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.file(
-                            File(_currentEntry.fields['image_path']!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Center(
-                              child: Icon(Icons.broken_image_rounded, size: 48, color: AppColors.textMuted),
-                            ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (_currentEntry.imagePaths.length == 1)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PhotoViewScreen(
+                            imagePaths: _currentEntry.imagePaths,
+                            initialIndex: 0,
+                            title: _currentEntry.title,
                           ),
-                          // Tap to view full screen banner at bottom
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.8),
-                                    Colors.transparent,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 220,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border, width: 1.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(
+                              File(_currentEntry.imagePaths.first),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image_rounded, size: 48, color: AppColors.textMuted),
+                              ),
+                            ),
+                            // Tap to view full screen banner at bottom
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.8),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.zoom_in_rounded, size: 20, color: Colors.white),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Tap to view full screen & zoom',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Spacer(),
+                                    Icon(Icons.fullscreen_rounded, size: 20, color: Colors.white),
                                   ],
                                 ),
                               ),
-                              child: const Row(
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 200,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _currentEntry.imagePaths.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final path = _currentEntry.imagePaths[index];
+                        final file = File(path);
+
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PhotoViewScreen(
+                                  imagePaths: _currentEntry.imagePaths,
+                                  initialIndex: index,
+                                  title: _currentEntry.title,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 150,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border, width: 1.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Stack(
+                                fit: StackFit.expand,
                                 children: [
-                                  Icon(Icons.zoom_in_rounded, size: 20, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Tap to view full screen & zoom',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
+                                  Image.file(
+                                    file,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const Center(
+                                      child: Icon(Icons.broken_image_rounded, size: 40, color: AppColors.textMuted),
                                     ),
                                   ),
-                                  Spacer(),
-                                  Icon(Icons.fullscreen_rounded, size: 20, color: Colors.white),
+                                  // Page badge at top-left
+                                  Positioned(
+                                    top: 8,
+                                    left: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.75),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        'Page ${index + 1}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Tap to zoom hint at bottom
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.zoom_in_rounded, size: 14, color: Colors.white),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Tap to Zoom',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
-                ),
                 const SizedBox(height: 20),
               ],
 
@@ -502,9 +624,9 @@ class _ViewEntryScreenState extends State<ViewEntryScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Fields List (excluding internal image_path)
+              // Fields List (excluding internal image_path and image_paths)
               ..._currentEntry.fields.entries
-                  .where((f) => f.key != 'image_path')
+                  .where((f) => f.key != 'image_path' && f.key != 'image_paths')
                   .map((f) {
                 final isSecret = _isSecretField(f.key);
                 final label = _formatFieldLabel(f.key);

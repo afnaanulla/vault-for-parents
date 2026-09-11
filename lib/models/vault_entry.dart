@@ -162,4 +162,20 @@ class VaultEntry {
     }
     return false;
   }
+
+  /// Returns list of attached document image paths (supporting both multi-image and legacy single image)
+  List<String> get imagePaths {
+    if (fields.containsKey('image_paths') && fields['image_paths']!.isNotEmpty) {
+      try {
+        final dynamic decoded = json.decode(fields['image_paths']!);
+        if (decoded is List) {
+          return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+        }
+      } catch (_) {}
+    }
+    if (fields.containsKey('image_path') && fields['image_path']!.isNotEmpty) {
+      return [fields['image_path']!];
+    }
+    return [];
+  }
 }

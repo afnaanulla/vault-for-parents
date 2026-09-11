@@ -48,8 +48,8 @@ class VaultEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catColor = entry.category.color;
-    final photoPath = entry.fields['image_path'];
-    final hasPhoto = photoPath != null && photoPath.isNotEmpty && File(photoPath).existsSync();
+    final imagePaths = entry.imagePaths;
+    final hasPhoto = imagePaths.isNotEmpty && File(imagePaths.first).existsSync();
 
     return JupiterCard(
       onTap: onTap,
@@ -64,23 +64,48 @@ class VaultEntryCard extends StatelessWidget {
               color: catColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: hasPhoto
-                  ? Image.file(
-                      File(photoPath),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Icon(
-                        entry.category.icon,
-                        color: catColor,
-                        size: 24,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: hasPhoto
+                      ? Image.file(
+                          File(imagePaths.first),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            entry.category.icon,
+                            color: catColor,
+                            size: 24,
+                          ),
+                        )
+                      : Icon(
+                          entry.category.icon,
+                          color: catColor,
+                          size: 24,
+                        ),
+                ),
+                if (imagePaths.length > 1)
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                    )
-                  : Icon(
-                      entry.category.icon,
-                      color: catColor,
-                      size: 24,
+                      child: Text(
+                        '${imagePaths.length}p',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 14),
